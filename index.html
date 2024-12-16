@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleDEX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="container mx-auto p-6">
+        <h1 class="text-4xl font-bold text-center mb-6">SimpleDEX</h1>
+        <div class="text-center">
+            <button id="btnConnect" class="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition">Conectar Wallet</button>
+            <button id="btnDisconnect" class="bg-red-500 text-white px-6 py-2 rounded-md hover:bg-red-600 transition mt-4 hidden">Desconectar</button>
+        </div>
+        <p id="status" class="text-center text-gray-400 mt-4">Estado: Desconectado</p>
+
+        <div id="dexFunctions" class="hidden mt-8 space-y-6">
+            <!-- Añadir liquidez -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Añadir Liquidez</h2>
+                <input type="number" id="addAmountA" placeholder="Cantidad de TokenA" class="w-full mt-2 p-2 border rounded-md text-black placeholder-gray-500">
+                <input type="number" id="addAmountB" placeholder="Cantidad de TokenB" class="w-full mt-2 p-2 border rounded-md text-black placeholder-gray-500">
+                <button id="btnAddLiquidity" class="bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600 mt-4">Añadir Liquidez</button>
+            </div>
+
+            <!-- Intercambiar A por B -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Intercambiar TokenA por TokenB</h2>
+                <input type="number" id="swapAtoBAmount" placeholder="Cantidad de TokenA" class="w-full mt-2 p-2 border rounded-md text-black placeholder-gray-500">
+                <button id="btnSwapAtoB" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600 mt-4">Intercambiar</button>
+            </div>
+
+            <!-- Intercambiar B por A -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Intercambiar TokenB por TokenA</h2>
+                <input type="number" id="swapBtoAAmount" placeholder="Cantidad de TokenB" class="w-full mt-2 p-2 border rounded-md text-black placeholder-gray-500">
+                <button id="btnSwapBtoA" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600 mt-4">Intercambiar</button>
+            </div>
+
+            <!-- Obtener precio -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Obtener Precio</h2>
+                <button id="btnGetPriceA" class="bg-purple-500 text-white px-6 py-2 rounded-md hover:bg-purple-600 mt-4">Precio de TokenA</button>
+                <button id="btnGetPriceB" class="bg-purple-500 text-white px-6 py-2 rounded-md hover:bg-purple-600 mt-4">Precio de TokenB</button>
+                <p id="priceResult" class="text-lg text-gray-400 mt-4"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js";
+
+        const contractAddress = "0x0aF9C7c91E54415c9A783DC8f33051a089Db9c40";
+        const abi = [
+          {
+            "inputs": [],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              { "indexed": false, "internalType": "uint256", "name": "cantidadA", "type": "uint256" },
+              { "indexed": false, "internalType": "uint256", "name": "cantidadB", "type": "uint256" }
+            ],
+            "name": "LiquidezAnadida",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              { "indexed": false, "internalType": "uint256", "name": "cantidadA", "type": "uint256" },
+              { "indexed": false, "internalType": "uint256", "name": "cantidadB", "type": "uint256" }
+            ],
+            "name": "LiquidezRetirada",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              { "indexed": true, "internalType": "address", "name": "usuario", "type": "address" },
+              { "indexed": false, "internalType": "uint256", "name": "cantidadEntrada", "type": "uint256" },
+              { "indexed": false, "internalType": "uint256", "name": "cantidadSalida", "type": "uint256" },
+              { "indexed": false, "internalType": "string", "name": "tipoIntercambio", "type": "string" }
+            ],
+            "name": "TokensIntercambiados",
+            "type": "event"
+          },
+          {
+            "inputs": [
+              { "internalType": "uint256", "name": "cantidadA", "type": "uint256" },
+              { "internalType": "uint256", "name": "cantidadB", "type": "uint256" }
+            ],
+            "name": "anadirLiquidez",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              { "internalType": "uint256", "name": "cantidadAEntrada", "type": "uint256" }
+            ],
+            "name": "intercambiarAToB",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              { "internalType": "uint256", "name": "cantidadBEntrada", "type": "uint256" }
+            ],
+            "name": "intercambiarBToA",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              { "internalType": "address", "name": "_token", "type": "address" }
+            ],
+            "name": "obtenerPrecio",
+            "outputs": [
+              { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "reserveA",
+            "outputs": [
+              { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "reserveB",
+            "outputs": [
+              { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              { "internalType": "uint256", "name": "cantidadA", "type": "uint256" },
+              { "internalType": "uint256", "name": "cantidadB", "type": "uint256" }
+            ],
+            "name": "retirarLiquidez",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "tokenA",
+            "outputs": [
+              { "internalType": "contract IERC20", "name": "", "type": "address" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "tokenB",
+            "outputs": [
+              { "internalType": "contract IERC20", "name": "", "type": "address" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          }
+        ];
+
+        let provider, signer, contract;
+
+        async function connectWallet() {
+            try {
+                if (window.ethereum) {
+                    await window.ethereum.request({ method: "eth_requestAccounts" });
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    contract = new ethers.Contract(contractAddress, abi, signer);
+
+                    const address = await signer.getAddress();
+                    document.getElementById("status").innerText = `Conectado a ${address}`;
+                    document.getElementById("btnConnect").classList.add("hidden");
+                    document.getElementById("btnDisconnect").classList.remove("hidden");
+                    document.getElementById("dexFunctions").classList.remove("hidden");
+                } else {
+                    alert("MetaMask no está instalado. Instálalo y recarga la página.");
+                }
+            } catch (error) {
+                console.error("Error al conectar la wallet:", error);
+                alert("No se pudo conectar la wallet. Verifica MetaMask y vuelve a intentar.");
+            }
+        }
+
+        async function addLiquidity() {
+            const amountA = document.getElementById("addAmountA").value;
+            const amountB = document.getElementById("addAmountB").value;
+            try {
+                await contract.anadirLiquidez(ethers.parseUnits(amountA, 18), ethers.parseUnits(amountB, 18));
+                alert("Liquidez añadida con éxito.");
+            } catch (error) {
+                console.error("Error al añadir liquidez:", error);
+                alert("No se pudo añadir liquidez.");
+            }
+        }
+
+        async function swapAtoB() {
+            const amount = document.getElementById("swapAtoBAmount").value;
+            try {
+                await contract.intercambiarAToB(ethers.parseUnits(amount, 18));
+                alert("Intercambio realizado con éxito.");
+            } catch (error) {
+                console.error("Error al intercambiar A por B:", error);
+                alert("No se pudo realizar el intercambio.");
+            }
+        }
+
+        async function swapBtoA() {
+            const amount = document.getElementById("swapBtoAAmount").value;
+            try {
+                await contract.intercambiarBToA(ethers.parseUnits(amount, 18));
+                alert("Intercambio realizado con éxito.");
+            } catch (error) {
+                console.error("Error al intercambiar B por A:", error);
+                alert("No se pudo realizar el intercambio.");
+            }
+        }
+
+        async function getPrice(token) {
+            try {
+                const price = await contract.obtenerPrecio(token);
+                document.getElementById("priceResult").innerText = `El precio es: ${ethers.formatUnits(price, 18)}`;
+            } catch (error) {
+                console.error("Error al obtener el precio:", error);
+                alert("No se pudo obtener el precio.");
+            }
+        }
+
+        function disconnectWallet() {
+            provider = null;
+            signer = null;
+            contract = null;
+            document.getElementById("status").innerText = "Estado: Desconectado";
+            document.getElementById("btnConnect").classList.remove("hidden");
+            document.getElementById("btnDisconnect").classList.add("hidden");
+            document.getElementById("dexFunctions").classList.add("hidden");
+        }
+
+        document.getElementById("btnConnect").addEventListener("click", connectWallet);
+        document.getElementById("btnDisconnect").addEventListener("click", disconnectWallet);
+        document.getElementById("btnAddLiquidity").addEventListener("click", addLiquidity);
+        document.getElementById("btnSwapAtoB").addEventListener("click", swapAtoB);
+        document.getElementById("btnSwapBtoA").addEventListener("click", swapBtoA);
+        document.getElementById("btnGetPriceA").addEventListener("click", () => getPrice("0xa3934EbE2B0b35f6425EC4a0ef750687aDA99226"));
+        document.getElementById("btnGetPriceB").addEventListener("click", () => getPrice("0x590833C4D81544aC254D3A5BeB8CCAf664a0b2bf"));
+    </script>
+</body>
+</html>
